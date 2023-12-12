@@ -29,6 +29,17 @@ def predict():
         prediction = model.predict([[int(tv),int(radio),int(newspaper)]])
         return "The prediction of sales investing that amount of money in TV, radio and newspaper is: " + str(round(prediction[0],2)) + 'k €'
     
+@app.route('/predict', methods=['GET'])
+def predict_list():
+    model = pickle.load(open('data/advertising_model','rb'))
+    data = request.get_json()
+    
+    input_values = data['data'][0]
+    tv, radio, newspaper = map(int, input_values)
+
+    prediction = model.predict([[tv, radio, newspaper]])
+    return jsonify({'prediction': round(prediction[0], 2)})
+
 
 # 1. Endpoint que ofrezca la predicción de ventas a partir de todos los valores de gastos en publicidad. (/v2/predict)
 @app.route('/v2/predict_bd', methods=['GET'])
@@ -78,8 +89,24 @@ def add_register():
 
     return jsonify({'message': 'New book record added successfully'})
 
+@app.route('/ingest', methods=['POST'])
+def add_data():
+    data = request.get_json()
+    
+    for row in data.get('data', []):
+        tv, radio, newspaper, sales = row
+        query = "INSERT INTO Advertising (tv, radio, newspaper, sales) VALUES (?, ?, ?, ?)"
+        connection = sqlite3.connect('.\\ejercicio\\data\\Advertising.db')
+        crsr = connection.cursor()
+        crsr.execute(query, (tv, radio, newspaper, sales))
+        connection.commit()
+        connection.close()
+
+    return jsonify({'message': 'Datos ingresados correctamente'})
+
+
 #3. Posibilidad de reentrenar de nuevo el modelo con los posibles nuevos registros que se recojan. (/v2/retrain)
-@app.route('/v2/retrain', methods=['POST'])
+@app.route('/retrain', methods=['POST'])
 def retrain():
     query = "SELECT * FROM Advertising;"
     conn = sqlite3.connect('.\\ejercicio\\data\\Advertising.db')
@@ -95,6 +122,6 @@ def retrain():
     model.fit(X,y)
     filename = 'new_model'
     pickle.dump(model, open(filename, 'wb'))
-    return jsonify({'message': 'New model trained'})
+    return jsonify({'message': 'Modelo reentrenado correctamente.'})
 
 app.run()
